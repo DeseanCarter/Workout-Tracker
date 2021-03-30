@@ -1,8 +1,10 @@
+// Variables
 const express = require("express");
 const logger = require("morgan");
 const mongoose = require("mongoose");
 let path = require('path');
 
+// Port
 const PORT = process.env.PORT || 3000;
 
 const db = require("./models");
@@ -24,25 +26,53 @@ useFindAndModify: false});
 // routesApi(app)
 // routesHTML(app)
 
+// Workouts GET request
 app.get("/api/workouts", (req, res) => {
-    db.Workout.find({})
-      .then(dbWorkout => {
-        // console.log(dbWorkout)
-        res.json(dbWorkout);
-      })
-      .catch(err => {
-        res.json(err);
-      });
-  });
+  db.Workout.aggregate([
+    {
+      $addFields: {
+        totalDuration: { $sum: "$exercises.duration"}
+      }
+    },
+ ])
+    .then(dbWorkout => {
+      console.log(dbWorkout)
+      res.json(dbWorkout);
+    })
+    .catch(err => {
+      res.json(err);
+    });
+});
 
-  app.get("/api/stats", (req, res) => {
+// Range GET request
+app.get("/api/workouts/range", (req, res) => {
+  db.Workout.aggregate([
+    {
+      $addFields: {
+        totalDuration: { $sum: "$exercises.duration"}
+      }
+    },
+ ]).sort({_id: -1}).limit(7)
+    .then(dbWorkout => {
+      console.log(dbWorkout)
+      res.json(dbWorkout);
+    })
+    .catch(err => {
+      res.json(err);
+    });
+});
+
+// Stats Page
+  app.get("/stats", (req, res) => {
     res.sendFile(path.join(__dirname + `/public/stats.html`));
   });
 
+// Exercise Page
   app.get("/exercise", (req, res) => {
     res.sendFile(path.join(__dirname + `/public/exercise.html`));
   });
 
+// Add new exercise
   app.put("/api/workouts/:id", (req, res) => {
    db.Workout.updateOne({_id: req.params.id}, {
         $push: { exercises: {
@@ -63,17 +93,15 @@ app.get("/api/workouts", (req, res) => {
   })
   });  
 
+  // Add new workout
   app.post("/api/workouts", ({data}, res) => {
     db.Workout.create(data)
     .then(dbWorkout => {
         res.json(dbWorkout);
       })
-      .catch(err => {
-        res.json(err);
-      })
     })
 
-  // Start the server
+// Server
 app.listen(PORT, () => {
     console.log(`App running on port ${PORT}!`);
 });
